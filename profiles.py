@@ -30,7 +30,7 @@ class MWDensity:
     class of density profiles for various models of MW DM
     halo considering central spikes.
     """
-    def __init__(self, halo_types = ['NFW'], spike_types = ['GS','no spike', 'NA','SH','SH-','BM'], **kwargs):
+    def __init__(self, halo_types = ['NFW'], spike_types = ['GS','no spike', 'NA','SH','SH-','BM'],rho_sat=None, **kwargs):
         """
         args:
             name - (string or list of strings) for 
@@ -41,10 +41,15 @@ class MWDensity:
         'gamma_c'
         """
         if 'r' in kwargs:
-          self.r = r
+            self.r = kwargs.get('r')  # Set the radial distances if provided
         else:
-          self.r = np.logspace(-9,0,200)
-          
+            self.r = np.logspace(-9, 0, 200)  # Set default radial distances
+        
+        if rho_sat is None:
+          self.rho_sat = 3.17 * 1e11 * UnitConversion.GeVbycc_to_Msunbykpc3
+        else:
+          self.rho_sat = rho_sat * UnitConversion.GeVbycc_to_Msunbykpc3
+        
         if 'rho_sun' in kwargs:
           self.rho_sun = rho_sun
         else:
@@ -59,6 +64,7 @@ class MWDensity:
         self.halo_types = halo_types
         self.spike_types = spike_types
       
+        
         self.density = {}
         for halo_type in self.halo_types:
             self.halo_type = halo_type
@@ -69,14 +75,15 @@ class MWDensity:
               self.spike_type = spike_type
               self.spike_params()
               self.density[halo_type][spike_type] = self.mass_density()/UnitConversion.GeVbycc_to_Msunbykpc3
+      
         
         
     def mass_density(self):
-      """
+      """s
       DM mass density of MW: 0 for r < 2R_S; sat for 2R_S <= r 
       < R_sat; spike for R_sat <= r < R_sp; halo for r >= R_sp
       """
-      density = np.zeros(self.r.shape)
+      density = np.zeros_like(self.r)
       
       indx1 = np.where(self.r >= self.R_sp)[0]
       density[indx1] = self.halo(self.r[indx1])
@@ -98,7 +105,6 @@ class MWDensity:
       density threshold is assumed where rho_sat(r) = 
       rho_sat(R_sat)*(r/R_sat)^-0.5
       """
-      self.rho_sat = 3.17 * 1e11 * UnitConversion.GeVbycc_to_Msunbykpc3
       self.gamma_sat = 0.5
       if np.any(density > self.rho_sat):
         self.R_sat = r[density > self.rho_sat][-1]
@@ -198,6 +204,7 @@ class MWDensity:
       self.v_0 = 105.0
       self.R_S = 2.95 * (self.M_BH) / (UnitConversion.kpc_to_km)
       self.r_c = 1.0
+      self.R200 = 200
       
     def nfw(self, r):
       return self.rho_s * (r/self.r_s)**-1 * (1 + r/self.r_s)**-2
@@ -227,18 +234,3 @@ class MWDensity:
         return density[0]
       else:
         return density
-    
-    def calculate_rho_sat_R_sat(self, m_chi, sigma_v):
-        """
-        Calculate rho_sat and R_sat arrays based on m_chi and sigma_v.
-        """
-        t = 3.15 * 10**17  # in s
-        rho_sat = []
-        R_sat = []
-        for sigma in sigma_v:
-            rh = m_chi / (sigma * t)
-            rho_sat.append(rh) 
-            r_sat = (((self.rho_s / rh) * (self.r_s / self.R_sp) * ((1 + (self.R_sp / self.r_s))**(-2)))**(1 / self.gamma_sp)) * self.R_sp
-            R_sat.append(r_sat)
-        return R_sat, rho_sat
-    
